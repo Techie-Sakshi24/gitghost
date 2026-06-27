@@ -1,9 +1,10 @@
 """
-GitGhost - README generator using Claude AI
+GitGhost - README generator using Claude AI (Groq fallback supported)
 """
 
 import os
-import anthropic
+import json
+import requests
 
 
 SYSTEM_PROMPT = """You are GitGhost, an elite GitHub README writer. You create cinematic, personality-driven GitHub profile READMEs that feel human — not corporate, not cringe, not generic.
@@ -23,12 +24,10 @@ Output ONLY the raw markdown. No explanation, no preamble, no backticks around t
 
 
 def generate_readme(profile_summary: str, style: str = "cinematic", api_key: str = None) -> str:
-    """Generate README using Claude."""
-    key = api_key or os.environ.get("ANTHROPIC_API_KEY")
+    """Generate README using Groq API."""
+    key = api_key or os.environ.get("GROQ_API_KEY")
     if not key:
-        raise ValueError("ANTHROPIC_API_KEY not set.")
-
-    client = anthropic.Anthropic(api_key=key)
+        raise ValueError("GROQ_API_KEY not set. Export it or pass --api-key.")
 
     style_instructions = {
         "cinematic": "Write it with cinematic energy — dramatic but real. Like a movie trailer for a developer.",
@@ -39,16 +38,29 @@ def generate_readme(profile_summary: str, style: str = "cinematic", api_key: str
 
     style_note = style_instructions.get(style, style_instructions["cinematic"])
 
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=2000,
-        system=SYSTEM_PROMPT,
-        messages=[
-            {
-                "role": "user",
-                "content": f"{style_note}\n\nHere is the developer's GitHub data:\n\n{profile_summary}\n\nGenerate their GitHub profile README now."
-            }
-        ]
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": f"{style_note}\n\nHere is the developer's GitHub data:\n\n{profile_summary}\n\nGenerate their GitHub profile README now."}
+        ],
+        "max_tokens": 2000,
+        "temperature": 0.8,
+    }
+
+    response = requests.post(
+        "https://api.groq.com/openai/v1/chat/completions",
+        headers=headers,
+        json=payload,
+        timeout=30,
     )
 
-    return response.content[0].text.strip()
+    if response.status_code != 200:
+        raise Exception(f"Groq API error {response.status_code}: {response.text}")
+
+    return response.json()["choices"][0]["message"]["content"].strip()
