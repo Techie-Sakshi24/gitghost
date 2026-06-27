@@ -5,7 +5,7 @@ with open("README.md", encoding="utf-8") as f:
 
 setup(
     name="gitghost",
-    version="1.0.0",
+    version="1.1.0",
     author="Sakshi Kale",
     author_email="sakshiskale.2405@gmail.com",
     description="Cinematic GitHub profile README generator — powered by Claude AI",
